@@ -30,11 +30,15 @@ private:
 
 	SDL_Renderer* renderer;
 
+	Uint32 ticksCount;
+
 	bool isRunning;
 
-	Uint32 ticksCount;
+	int paddleDir;
 
 	Vector2 paddlePos;
 
 	Vector2 ballPos;
+
+	Vector2 ballVelocity;
 };

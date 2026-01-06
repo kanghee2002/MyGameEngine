@@ -1,6 +1,10 @@
 #include "Game.h"
 
+const float screenHeight = 768.0f;
+const float screenWidth = 1080.0f;
+
 const int thickness = 15;
+const float paddleHeight = 100.0f;
 
 Game::Game() :
 	window(nullptr),
@@ -25,7 +29,7 @@ bool Game::Initialize()
 	window = SDL_CreateWindow(
 		"Physics Engine",
 		100, 100,
-		1024, 768,
+		screenWidth, screenHeight,
 		0
 	);
 
@@ -44,6 +48,13 @@ bool Game::Initialize()
 
 		return false;
 	}
+
+	paddlePos.x = 10.0f;
+	paddlePos.y = screenHeight / 2;
+	ballPos.x = screenWidth / 2;
+	ballPos.y = screenHeight / 2;
+	ballVelocity.x = -200.0f / 2;
+	ballVelocity.y = 235.0f / 2;
 
 	return true;
 }
@@ -89,6 +100,16 @@ void Game::ProcessInput()
 		{
 			isRunning = false;
 		}
+
+		paddleDir = 0;
+		if (state[SDL_SCANCODE_W])
+		{
+			paddleDir -= 1;
+		}
+		if (state[SDL_SCANCODE_S])
+		{
+			paddleDir += 1;
+		}
 	}
 }
 
@@ -106,28 +127,83 @@ void Game::UpdateGame()
 		deltaTime = 0.05f;
 	}
 
+	if (paddleDir != 0)
+	{
+		paddlePos.y += paddleDir * 300.0f * deltaTime;
+
+		if (paddlePos.y < (paddleHeight / 2.0f + thickness))
+		{
+			paddlePos.y = paddleHeight / 2.0f + thickness;
+		}
+		else if (paddlePos.y > screenHeight - (paddleHeight / 2.0f + thickness))
+		{
+			paddlePos.y = screenHeight - (paddleHeight / 2.0f + thickness);
+		}
+	}
+
+	ballPos.x += ballVelocity.x * deltaTime;
+	ballPos.y += ballVelocity.y * deltaTime;
+
+
+	// Collide Top Wall
+	if (ballPos.y <= thickness && ballVelocity.y < 0.0f)
+	{
+		ballVelocity.y *= -1;
+	}
+
+	// Collide Bottom Wall
+	if (ballPos.y >= screenHeight - thickness && ballVelocity.y > 0.0f)
+	{
+		ballVelocity.y *= -1;
+	}
+
+	// Collide Right Wall
+	if (ballPos.x >= screenWidth - thickness && ballVelocity.x > 0.0f)
+	{
+		ballVelocity.x *= -1;
+	}
+
+	// Collide Paddle 
+	if (ballPos.x >= paddlePos.x && ballPos.x <= paddlePos.x + thickness)
+	{
+		float yDiff = paddlePos.y - ballPos.y;
+		if (yDiff < 0.0f) yDiff = -yDiff;
+
+		if (yDiff <= paddleHeight / 2 && ballVelocity.x < 0.0f)
+		{
+			ballVelocity.x *= -1;
+		}
+	}
 }
 
 void Game::GenerateOutput()
 {
 	// Draw Background
-	SDL_SetRenderDrawColor(renderer, 0, 0, 255, 128);
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 128);
 
 	SDL_RenderClear(renderer);
 
 	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 128);
 
 	// Draw Wall
-	SDL_Rect topWall{ 0, 0, 1024, thickness };
-	SDL_Rect bottomWall{ 0, 768 - thickness, 1024, thickness };
-	SDL_Rect leftWall{ 0, 0, thickness, 768 };
-	SDL_Rect rightWall{ 1024 - thickness, 0, thickness, 1024 };
+	SDL_Rect topWall{ 0, 0, screenWidth, thickness };
+	SDL_Rect bottomWall{ 0, screenHeight - thickness, screenWidth, thickness };
+	SDL_Rect leftWall{ 0, 0, thickness, screenHeight };
+	SDL_Rect rightWall{ screenWidth - thickness, 0, thickness, screenWidth };
 
 	SDL_RenderFillRect(renderer, &topWall);
 	SDL_RenderFillRect(renderer, &bottomWall);
-	SDL_RenderFillRect(renderer, &leftWall);
 	SDL_RenderFillRect(renderer, &rightWall);
 	
+	// Draw Paddle
+	SDL_Rect paddle{ 
+		static_cast<int>(paddlePos.x),
+		static_cast<int>(paddlePos.y - (paddleHeight / 2)),
+		thickness,
+		paddleHeight
+	};
+	SDL_RenderFillRect(renderer, &paddle);
+
 	// Draw Ball
 	SDL_Rect ball{
 		static_cast<int>(ballPos.x - thickness / 2),
@@ -135,7 +211,7 @@ void Game::GenerateOutput()
 		thickness,
 		thickness
 	};
-
+	SDL_RenderFillRect(renderer, &ball);
 
 
 
