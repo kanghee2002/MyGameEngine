@@ -1,4 +1,9 @@
+#include "SDL.h"
+#include "SDL_image.h"
+
 #include "Game.h"
+#include "Actor.h"
+#include "SpriteComponent.h"
 
 const float screenHeight = 768.0f;
 const float screenWidth = 1080.0f;
@@ -10,7 +15,7 @@ Game::Game() :
 	window(nullptr),
 	renderer(nullptr),
 	isRunning(true),
-	ticksCount(0)
+	isUpdatingActors(false)
 {
 
 }
@@ -49,6 +54,12 @@ bool Game::Initialize()
 		return false;
 	}
 
+	if (IMG_Init(IMG_INIT_PNG) == 0)
+	{
+		SDL_Log("Unable to initialize SDL_image: %s", SDL_GetError());
+		return false;
+	}
+
 	paddlePos.x = 10.0f;
 	paddlePos.y = screenHeight / 2;
 	ballPos.x = screenWidth / 2;
@@ -76,6 +87,42 @@ void Game::Shutdown()
 	SDL_DestroyRenderer(renderer);
 
 	SDL_Quit();
+}
+
+void Game::AddActor(Actor* actor)
+{
+	if (isUpdatingActors)
+	{
+		pendingActors.emplace_back(actor);
+	}
+	else
+	{
+		actors.emplace_back(actor);
+	}
+}
+
+void Game::RemoveActor(Actor* actor)
+{
+}
+
+void Game::AddSprite(SpriteComponent* sprite)
+{
+	int drawOrder = sprite->GetDrawOrder();
+
+	auto iter = sprites.begin();
+	for (; iter != sprites.end(); iter++)
+	{
+		if (drawOrder < (*iter)->GetDrawOrder())
+		{
+			break;
+		}
+	}
+
+	sprites.insert(iter, sprite);
+}
+
+void Game::RemoveSprite(SpriteComponent* sprite)
+{
 }
 
 void Game::ProcessInput()
@@ -120,11 +167,37 @@ void Game::UpdateGame()
 	float deltaTime = SDL_GetTicks() - ticksCount;
 	deltaTime /= 100.0f;	// Convert to seconds
 
-	ticksCount = SDL_GetTicks();
-
 	if (deltaTime > 0.05f)
 	{
 		deltaTime = 0.05f;
+	}
+	ticksCount = SDL_GetTicks();
+
+	isUpdatingActors = true;
+	for (auto actor : actors)
+	{
+		actor->Update(deltaTime);
+	}
+	isUpdatingActors = false;
+
+	for (auto pendingActor : pendingActors)
+	{
+		actors.emplace_back(pendingActor);
+	}
+	pendingActors.clear();
+
+	std::vector<Actor*> deadActors;
+	for (auto actor : actors)
+	{
+		if (actor->GetState() == Actor::EDead)
+		{
+			deadActors.emplace_back(actor);
+		}
+	}
+
+	for (auto actor : deadActors)
+	{
+		delete actor;
 	}
 
 	if (paddleDir != 0)
